@@ -117,11 +117,13 @@
 			</div>
 
 			<div id="widgets">
-				<div id="notes_container" class="hidden">
-					<div id="notes_parsed" placeholder="Double click to edit"></div>
-					<textarea id="notes_editor" class="hidden" tabindex="-1" aria-label="Text field editor"></textarea>
-					<button id="b_notesdone" class="trn">Edit</button>
-				</div>
+				<div
+					id="notes_container"
+					class="hidden"
+					placeholder="Double click to edit"
+					contenteditable="true"
+					role="text"
+				></div>
 
 				<form id="sb_container">
 					<input

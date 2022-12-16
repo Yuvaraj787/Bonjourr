@@ -445,15 +445,15 @@ function initParams(data: Sync, settingsDom: HTMLElement) {
 	// Text field
 
 	paramId('i_notes').addEventListener('change', function (this: HTMLInputElement) {
-		notes(null, { is: 'toggle', value: this.checked.toString() })
+		notes(null, { toggle: this.checked })
 	})
 
 	paramId('i_notesalign').addEventListener('change', function (this: HTMLInputElement) {
-		notes(null, { is: 'align', value: this.value })
+		notes(null, { align: this.value })
 	})
 
 	paramId('i_notesopacity').addEventListener('input', function (this: HTMLInputElement) {
-		notes(null, { is: 'opacity', value: this.value })
+		notes(null, { opacity: parseFloat(this.value) })
 	})
 
 	//
@@ -796,7 +796,7 @@ function switchLangs(nextLang: Langs) {
 		if (data.notes?.text) {
 			const value = translateNotesText(nextLang, langs.current, data.notes.text)
 			document.querySelector<HTMLInputElement>('#notes_editor')!.value = value
-			notes(null, { is: 'change', value })
+			notes(null, { change: value })
 		}
 
 		if (data.quotes?.type === 'classic') {
