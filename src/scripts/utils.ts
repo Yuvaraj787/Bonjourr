@@ -43,6 +43,11 @@ export const extractHostname = (url: string) => {
 	return res
 }
 
+export const pathHasId = (e: Event, id: string) => {
+	const path = e.composedPath()
+	return path.filter((node: any) => node.id === id).length > 0
+}
+
 export const randomString = (len: number) => {
 	const chars = 'abcdefghijklmnopqr'
 	return Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join('')

@@ -14,6 +14,7 @@
 	border: 1px solid rgba(255, 255, 255, 0.075);
 	overflow-x: hidden;
 	overflow-y: auto;
+	word-break: break-all;
 
 	cursor: auto;
 	pointer-events: all;
@@ -44,52 +45,41 @@
 		outline: 2px solid var(--blue);
 	}
 
-	// div#notes_parsed {
-	// 	word-break: break-word;
-	// 	cursor: auto;
-	// 	content: 'wow';
+	input[type='checkbox'] {
+		width: 1.2em;
+		height: 1.2em;
+		cursor: pointer;
+	}
 
-	// 	&:empty:after {
-	// 		content: attr(placeholder);
-	// 		opacity: 0.5;
-	// 	}
+	blockquote {
+		border-left: 2px solid #fff3;
+		padding-left: 1em;
+		margin-left: 1em;
+	}
 
-	// 	input[type='checkbox'] {
-	// 		width: 1.2em;
-	// 		height: 1.2em;
-	// 		cursor: pointer;
-	// 	}
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6 {
+		margin: 0.75em 0;
+	}
 
-	// 	blockquote {
-	// 		border-left: 2px solid #fff3;
-	// 		padding-left: 1em;
-	// 		margin-left: 1em;
-	// 	}
+	ul {
+		padding-left: 1em;
+	}
 
-	// 	h1,
-	// 	h2,
-	// 	h3,
-	// 	h4,
-	// 	h5,
-	// 	h6 {
-	// 		margin: 0.75em 0;
-	// 	}
+	li {
+		list-style: inherit;
+	}
 
-	// 	ul {
-	// 		padding-left: 1em;
-	// 	}
+	a {
+		color: inherit;
 
-	// 	li {
-	// 		list-style: inherit;
-	// 	}
-
-	// 	a {
-	// 		color: inherit;
-
-	// 		&:hover,
-	// 		&:focus {
-	// 			color: var(--blue);
-	// 		}
-	// 	}
-	// }
+		&:hover,
+		&:focus {
+			color: var(--blue);
+		}
+	}
 }

@@ -34,6 +34,7 @@ import {
 	tradThis,
 	turnRefreshButton,
 	validateHideElem,
+	pathHasId,
 } from './utils'
 
 const eventDebounce = debounce(function (value: { [key: string]: unknown }) {
@@ -109,10 +110,91 @@ export function traduction(settingsDom: Element | null, lang = 'en') {
 	document.documentElement.setAttribute('lang', lang)
 }
 
-type NotesEvent = { toggle?: boolean; change?: string; align?: string; opacity?: number }
+type NotesEvent = { toggle?: boolean; change?: string; align?: string; opacity?: number; toHTML?: boolean }
 
 export function notes(init: Notes | null, event?: NotesEvent) {
 	const container = $('notes_container')
+
+	function parseMarkdownToHTML(val: string) {
+		// const aria = tradThis('Text field tick box')
+		// aria-label="${aria}"
+
+		let html = snarkdown(val)
+		html = html
+			.replaceAll(`<a href="undefined"> </a>`, `<input type="checkbox">`)
+			.replaceAll(`<a href="undefined">x</a>`, `<input type="checkbox" checked>`)
+
+		if (!container) {
+			return false
+		}
+
+		// Remove all nodes in container
+		while (container.firstChild) {
+			container.removeChild(container.firstChild)
+		}
+
+		// Add html string to container div (without innerHTML)
+		const parser = new DOMParser()
+		const doc = parser.parseFromString(html, 'text/html')
+		const allNodes = [...doc.body.childNodes]
+
+		allNodes.forEach((node) => container.appendChild(node))
+
+		function createSpan(node: Node) {
+			const span = document.createElement('span')
+			span.textContent = node.nodeValue
+			return span
+		}
+
+		function createInput(node: Node) {
+			const input = document.createElement('input')
+			input.type = 'checkbox'
+			input.checked = (node as HTMLInputElement).checked
+			return input
+		}
+
+		// faut faire previous sibling
+		;[...container.childNodes].forEach((node) => {
+			const isText = node.nodeName === '#text'
+			const isCheckbox = node.nodeName === 'INPUT'
+			const hasNoWrapper = node.parentElement?.id === 'notes_container'
+
+			// Is a "naked" node
+			if ((isText || isCheckbox) && hasNoWrapper) {
+				//
+				// previous is a transformed "naked" node to a div => append
+				if (node.previousSibling?.nodeName === 'DIV') {
+					if (isText) node.previousSibling.appendChild(createSpan(node))
+					if (isCheckbox) node.previousSibling.appendChild(createInput(node))
+					node.remove()
+					return
+				}
+
+				// no transformed "naked" ? create one
+				const div = document.createElement('div')
+
+				if (isText) div.appendChild(createSpan(node))
+				if (isCheckbox) div.appendChild(createInput(node))
+
+				node.replaceWith(div)
+			}
+
+			// if ( node.parentElement?.id === 'node_container') {
+			// 	const div = document.createElement('div')
+			// 	const input = document.createElement('input')
+
+			// 	div.appendChild(input)
+			// 	node.replaceWith(div)
+			// }
+		})
+
+		// Remove BRs after
+		;[...container.childNodes].forEach((node) => {
+			if (node.nodeName === 'BR') {
+				node.remove()
+			}
+		})
+	}
 
 	function handleToggle(state: boolean) {
 		if (container) clas(container, !state, 'hidden')
@@ -133,7 +215,7 @@ export function notes(init: Notes | null, event?: NotesEvent) {
 		container.style.backgroundColor = 'rgba(255, 255, 255, ' + value + ')'
 	}
 
-	function updateNotes({ toggle, change, align, opacity }: NotesEvent, notes: Sync['notes']) {
+	function updateNotes({ toggle, change, align, opacity, toHTML }: NotesEvent, notes: Sync['notes']) {
 		if (!notes) return
 
 		if (toggle) {
@@ -164,6 +246,10 @@ export function notes(init: Notes | null, event?: NotesEvent) {
 			notes.opacity = opacity
 		}
 
+		if (toHTML) {
+			parseMarkdownToHTML(notes.text)
+		}
+
 		eventDebounce({ notes })
 	}
 
@@ -171,6 +257,7 @@ export function notes(init: Notes | null, event?: NotesEvent) {
 		storage.sync.get('notes', (data: any) => {
 			updateNotes(event, data.notes || syncDefaults.notes)
 		})
+		return
 	}
 
 	//
@@ -181,10 +268,53 @@ export function notes(init: Notes | null, event?: NotesEvent) {
 		handleAlign(init.align)
 		handleOpacity(init.opacity)
 		handleToggle(init.on)
+		parseMarkdownToHTML(init.text || '')
 
 		if (container) {
-			container.textContent = init.text || ''
-			container.addEventListener('input', () => notes(null, { change: container.textContent || '' }))
+			//
+			// Re-add markdown keys lost during wysiwyg conversion
+			//
+
+			container.addEventListener('input', () => {
+				const tempdiv = document.createElement('div')
+				let html = container.innerHTML
+
+				html = html
+					.replaceAll('<ul>', '\n\n')
+					.replaceAll('</ul>', '')
+					.replaceAll('</li>', `\n`)
+					.replaceAll('<li>', '- ')
+					.replaceAll('<div><br></div>', `  \n\n`)
+					.replaceAll('<input type="checkbox">', '[ ]')
+					.replaceAll('<br>', '\n\n')
+					.replaceAll('<div>', '')
+					.replaceAll('</div>', '\n\n')
+					.replaceAll('<h1>', '<h1># ')
+					.replaceAll('</h1>', '\n\n')
+
+				tempdiv.innerHTML = html
+
+				console.log(tempdiv.textContent)
+
+				notes(null, { change: tempdiv.textContent || '' })
+			})
+
+			//
+			// Outside click toggler
+			//
+
+			container.addEventListener('click', () => container.setAttribute('contenteditable', 'true'))
+
+			// Prevent accidental click outside
+			let isMousedownOutside = false
+			window.addEventListener('mousedown', (e) => (isMousedownOutside = !pathHasId(e, 'notes_container')))
+			window.addEventListener('mouseup', (e) => {
+				if (isMousedownOutside && !pathHasId(e, 'notes_container')) {
+					container.setAttribute('contenteditable', 'false')
+					notes(null, { toHTML: true })
+					isMousedownOutside = false
+				}
+			})
 		}
 	}
 
@@ -192,44 +322,62 @@ export function notes(init: Notes | null, event?: NotesEvent) {
 	// contenteditable markdown tests
 	//
 
-	// function setCaret(node: Node, pos: number) {
-	// 	const range = document.createRange()
-	// 	const sel = window.getSelection()!
-	// 	range.setStart(node, pos)
-	// 	range.collapse(true)
-	// 	sel.removeAllRanges()
-	// 	sel.addRange(range)
-	// }
+	function setCaret(node: Node, pos: number) {
+		const range = document.createRange()
+		const sel = window.getSelection()!
+		range.setStart(node, pos)
+		range.collapse(true)
+		sel.removeAllRanges()
+		sel.addRange(range)
+	}
 
-	// function editContentEvent(e: Event) {
-	// 	let range = window.getSelection()?.getRangeAt(0)
-	// 	let textnode = range?.startContainer?.nodeValue
-	// 	let data = (e as InputEvent).data
+	function editContentEvent(e: Event) {
+		let range = window.getSelection()?.getRangeAt(0)
+		let nodeValue = range?.startContainer?.nodeValue
+		let data = (e as InputEvent).data
 
-	// 	if (textnode?.startsWith('#') && data?.startsWith('#')) {
-	// 		const div = range?.startContainer?.parentElement
-	// 		const title = document.createElement('h1')
+		if (container?.innerHTML.length === 1 && data) {
+			container.innerHTML = '<div><span>' + data + '</span></div>'
+			setCaret(container, 1)
+		}
 
-	// 		title.textContent = (div?.textContent || '').replace('# ', '')
-	// 		div?.parentNode?.replaceChild(title, div)
+		if (nodeValue?.startsWith('#') && data?.startsWith('#')) {
+			const div = range?.startContainer?.parentElement
+			const title = document.createElement('h1')
 
-	// 		setCaret(title, 1)
-	// 	}
+			title.textContent = (div?.textContent || '').replace('# ', '')
+			div?.parentNode?.replaceChild(title, div)
 
-	// 	if (textnode?.includes('[ ]')) {
-	// 		let html = snarkdown(textnode)
-	// 		html = html.replaceAll(`<a href="undefined"> </a>`, `<input type="checkbox">`)
-	// 		html = html.replaceAll(`<a href="undefined">x</a>`, `<input type="checkbox" checked>`)
+			setCaret(title, 1)
+		}
 
-	// 		const span = range?.startContainer?.parentElement
-	// 		if (span) {
-	// 			span.innerHTML = html
-	// 			setCaret(span, 1)
-	// 		}
-	// 	}
-	// }
+		if (nodeValue?.startsWith(`- `)) {
+			let html = snarkdown(nodeValue)
+			html = html.replaceAll(`<a href="undefined"> </a>`, `<input type="checkbox">`)
+			html = html.replaceAll(`<a href="undefined">x</a>`, `<input type="checkbox" checked>`)
 
-	// parsed?.addEventListener('input', editContentEvent)
+			const span = range?.startContainer?.parentElement
+
+			if (span) {
+				span.innerHTML = html
+				setCaret(span, 1)
+			}
+		}
+
+		if (nodeValue?.includes('[ ]') || nodeValue?.includes('[x]')) {
+			const parent = range?.startContainer?.parentElement
+			let html = parent?.innerHTML || ''
+
+			html = html.replaceAll(`[ ]`, `<input type="checkbox">`).replaceAll(`[x]`, `<input type="checkbox" checked>`)
+
+			if (parent) {
+				parent.innerHTML = html
+				setCaret(parent, 1)
+			}
+		}
+	}
+
+	container?.addEventListener('input', editContentEvent)
 }
 
 export function favicon(init: string | null, event?: HTMLInputElement) {
